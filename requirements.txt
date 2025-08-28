@@ -1,0 +1,14 @@
+# Reinforcement Learning
+stable-baselines3
+gymnasium
+
+# Core ML/Data Science
+numpy
+
+# Computer Vision & Visualization
+opencv-python
+matplotlib
+
+# Geospatial Analysis
+geopandas
+folium
