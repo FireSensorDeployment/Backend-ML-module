@@ -92,6 +92,47 @@ class TestHeatmapGenerator:
                 back_gr, back_gc = self.generator.display_to_grid_coords(dr, dc)
                 assert (gr, gc) == (back_gr, back_gc), f"Round-trip failed for {(gr, gc)}"
         print("✅ Round-trip mapping accuracy verified")
+        
+    def test_helper_functions(self):
+        """Test grid cell helper functions."""
+        print("\n🔧 Testing Helper Functions...")
+        
+        # Test get_grid_cell_center
+        test_cases = [(0, 0), (1, 1), (25, 25), (49, 49)]
+        expected_centers = [(10, 10), (30, 30), (510, 510), (990, 990)]
+        
+        for i, (gr, gc) in enumerate(test_cases):
+            center = self.generator.get_grid_cell_center(gr, gc)
+            expected = expected_centers[i]
+            assert center == expected, f"Expected center {expected}, got {center} for grid({gr},{gc})"
+        print("✅ Grid cell center calculation correct")
+        
+        # Test get_grid_cell_region
+        gr, gc = 5, 10  # Test case: grid cell (5, 10)
+        row_slice, col_slice = self.generator.get_grid_cell_region(gr, gc)
+        
+        # Expected region: [100:120, 200:220]
+        assert row_slice == slice(100, 120), f"Row slice incorrect: {row_slice}"
+        assert col_slice == slice(200, 220), f"Col slice incorrect: {col_slice}"
+        print("✅ Grid cell region slice correct")
+        
+        # Test region slicing works with arrays
+        test_array = np.ones((1000, 1000))
+        test_array[row_slice, col_slice] = 5.0
+        
+        # Verify the region was correctly set
+        assert np.all(test_array[100:120, 200:220] == 5.0), "Region slicing failed"
+        assert test_array[99, 199] == 1.0, "Outside region should remain unchanged"
+        assert test_array[120, 220] == 1.0, "Outside region should remain unchanged"
+        print("✅ Region slicing works with numpy arrays")
+        
+        # Test boundary cases with safe=True
+        center_boundary = self.generator.get_grid_cell_center(49, 49, safe=True)
+        region_boundary = self.generator.get_grid_cell_region(49, 49, safe=True)
+        
+        assert center_boundary == (990, 990), f"Boundary center incorrect: {center_boundary}"
+        assert region_boundary == (slice(980, 1000), slice(980, 1000)), f"Boundary region incorrect: {region_boundary}"
+        print("✅ Boundary handling in helper functions correct")
     
     def test_gaussian_hotspot_generation(self):
         """Test Gaussian hotspot pattern generation."""
@@ -447,6 +488,7 @@ class TestHeatmapGenerator:
         # Run individual tests
         self.test_initialization()
         self.test_coordinate_mapping()
+        self.test_helper_functions()
         self.test_gaussian_hotspot_generation()
         self.test_horizontal_gradient_generation()
         self.test_vertical_gradient_generation()

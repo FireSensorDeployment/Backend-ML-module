@@ -116,6 +116,40 @@ class HeatmapGenerator:
         grid_col = display_col // self.scale_factor[1]
         return (grid_row, grid_col)
 
+    def get_grid_cell_center(self, grid_row: int, grid_col: int, safe: bool = True) -> Tuple[int, int]:
+        """
+        Get the center coordinates of a grid cell in display space.
+        
+        Args:
+            grid_row: Grid row index
+            grid_col: Grid column index
+            safe: If True, validate bounds and clamp to valid range
+            
+        Returns:
+            Display coordinates of the grid cell center
+        """
+        top_left = self.grid_to_display_coords(grid_row, grid_col, safe=safe)
+        center_offset_h = self.scale_factor[0] // 2
+        center_offset_w = self.scale_factor[1] // 2
+        return (top_left[0] + center_offset_h, top_left[1] + center_offset_w)
+
+    def get_grid_cell_region(self, grid_row: int, grid_col: int, safe: bool = True) -> Tuple[slice, slice]:
+        """
+        Get the display region (as slices) corresponding to a grid cell.
+        
+        Args:
+            grid_row: Grid row index
+            grid_col: Grid column index
+            safe: If True, validate bounds and clamp to valid range
+            
+        Returns:
+            Tuple of (row_slice, col_slice) for indexing display arrays
+        """
+        top_left = self.grid_to_display_coords(grid_row, grid_col, safe=safe)
+        row_slice = slice(top_left[0], top_left[0] + self.scale_factor[0])
+        col_slice = slice(top_left[1], top_left[1] + self.scale_factor[1])
+        return (row_slice, col_slice)
+
     def generate_heatmap(self, pattern_type: PatternType, **kwargs) -> HeatmapData:
         """
         Generate heatmap with specified pattern type.
@@ -153,6 +187,7 @@ class HeatmapGenerator:
     
     def _generate_pattern(self, pattern_type: PatternType, size: Tuple[int, int], **kwargs) -> np.ndarray:
         """Generate specific pattern type at given resolution."""
+        # Note: size parameter reserved for future use with variable resolution patterns
         if pattern_type == PatternType.GAUSSIAN_HOTSPOT:
             return self._generate_gaussian_hotspot(**kwargs)
         elif pattern_type == PatternType.HORIZONTAL_GRADIENT:
