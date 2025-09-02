@@ -22,7 +22,7 @@
   3. Verify installation:
   python test_env.py
 
-  ### requirements.txt示例
+  ### requirements.txt
   ```txt
 # Reinforcement Learning
 stable-baselines3
