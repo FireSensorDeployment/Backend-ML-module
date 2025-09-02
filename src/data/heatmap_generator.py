@@ -64,15 +64,55 @@ class HeatmapGenerator:
         
         self.scale_factor = (display_h // grid_h, display_w // grid_w)
     
-    def grid_to_display_coords(self, grid_row: int, grid_col: int) -> Tuple[int, int]:
-        """Convert grid coordinates to display coordinates (top-left of cell)."""
+    def _validate_grid_coords(self, grid_row: int, grid_col: int) -> bool:
+        """Validate that grid coordinates are within valid bounds."""
+        grid_h, grid_w = self.config.grid_size
+        return 0 <= grid_row < grid_h and 0 <= grid_col < grid_w
+    
+    def _validate_display_coords(self, display_row: int, display_col: int) -> bool:
+        """Validate that display coordinates are within valid bounds.""" 
+        display_h, display_w = self.config.display_size
+        return 0 <= display_row < display_h and 0 <= display_col < display_w
+
+    def grid_to_display_coords(self, grid_row: int, grid_col: int, safe: bool = True) -> Tuple[int, int]:
+        """
+        Convert grid coordinates to display coordinates (top-left of cell).
+        
+        Args:
+            grid_row: Grid row index
+            grid_col: Grid column index  
+            safe: If True, validate bounds and clamp to valid range
+            
+        Returns:
+            Display coordinates tuple
+        """
+        if safe and not self._validate_grid_coords(grid_row, grid_col):
+            # Clamp to nearest valid coordinate for RL safety
+            grid_row = max(0, min(grid_row, self.config.grid_size[0] - 1))
+            grid_col = max(0, min(grid_col, self.config.grid_size[1] - 1))
+            
         display_row = grid_row * self.scale_factor[0]
         display_col = grid_col * self.scale_factor[1]
         return (display_row, display_col)
     
-    def display_to_grid_coords(self, display_row: int, display_col: int) -> Tuple[int, int]:
-        """Convert display coordinates to grid coordinates."""
-        grid_row = display_row // self.scale_factor[0]
+    def display_to_grid_coords(self, display_row: int, display_col: int, safe: bool = True) -> Tuple[int, int]:
+        """
+        Convert display coordinates to grid coordinates.
+        
+        Args:
+            display_row: Display row coordinate
+            display_col: Display column coordinate
+            safe: If True, validate bounds and clamp to valid range
+            
+        Returns:
+            Grid coordinates tuple
+        """
+        if safe and not self._validate_display_coords(display_row, display_col):
+            # Clamp to nearest valid coordinate for RL safety
+            display_row = max(0, min(display_row, self.config.display_size[0] - 1))
+            display_col = max(0, min(display_col, self.config.display_size[1] - 1))
+            
+        grid_row = display_row // self.scale_factor[0] 
         grid_col = display_col // self.scale_factor[1]
         return (grid_row, grid_col)
 
