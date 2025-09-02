@@ -150,17 +150,22 @@ class HeatmapGenerator:
         col_slice = slice(top_left[1], top_left[1] + self.scale_factor[1])
         return (row_slice, col_slice)
 
-    def generate_heatmap(self, pattern_type: PatternType, **kwargs) -> HeatmapData:
+    def generate_heatmap(self, pattern_type: PatternType, randomize: bool = False, **kwargs) -> HeatmapData:
         """
         Generate heatmap with specified pattern type.
         
         Args:
             pattern_type: Type of pattern to generate
+            randomize: If True, randomize pattern parameters for training variety
             **kwargs: Pattern-specific parameters
             
         Returns:
             HeatmapData containing all generated layers
         """
+        # Randomize parameters if requested
+        if randomize:
+            kwargs = self._randomize_parameters(pattern_type, **kwargs)
+        
         # Generate high-resolution display layer first
         display_layer = self._generate_pattern(pattern_type, self.config.display_size, **kwargs)
         
@@ -184,6 +189,74 @@ class HeatmapGenerator:
             decision_grid=decision_grid,
             metadata=metadata
         )
+    
+    def _randomize_parameters(self, pattern_type: PatternType, **kwargs) -> Dict[str, Any]:
+        """
+        Generate randomized parameters for pattern generation.
+        
+        Args:
+            pattern_type: Type of pattern to randomize
+            **kwargs: Existing parameters (will be overridden by random ones)
+            
+        Returns:
+            Dictionary of randomized parameters
+        """
+        import random
+        
+        height, width = self.config.display_size
+        
+        if pattern_type == PatternType.GAUSSIAN_HOTSPOT:
+            # Random number of hotspots (2-5)
+            num_hotspots = random.randint(2, 5)
+            
+            # Random hotspot positions (avoid edges)
+            edge_buffer = 100
+            hotspot_centers = []
+            for _ in range(num_hotspots):
+                center_y = random.randint(edge_buffer, height - edge_buffer)
+                center_x = random.randint(edge_buffer, width - edge_buffer)
+                hotspot_centers.append((center_y, center_x))
+            
+            # Random intensities
+            intensities = [random.uniform(0.3, 1.0) for _ in range(num_hotspots)]
+            
+            # Random sigma values
+            sigmas = [random.uniform(30, 120) for _ in range(num_hotspots)]
+            
+            kwargs.update({
+                'hotspot_centers': hotspot_centers,
+                'intensities': intensities,
+                'sigmas': sigmas
+            })
+            
+        elif pattern_type == PatternType.HORIZONTAL_GRADIENT:
+            kwargs.update({
+                'direction': random.choice(['left_to_right', 'right_to_left']),
+                'min_value': random.uniform(0.0, 0.3),
+                'max_value': random.uniform(0.7, 1.0)
+            })
+            
+        elif pattern_type == PatternType.VERTICAL_GRADIENT:
+            kwargs.update({
+                'direction': random.choice(['top_to_bottom', 'bottom_to_top']),
+                'min_value': random.uniform(0.0, 0.3),
+                'max_value': random.uniform(0.7, 1.0)
+            })
+            
+        elif pattern_type == PatternType.RADIAL_GRADIENT:
+            # Random center position
+            center_y = random.randint(height // 4, 3 * height // 4)
+            center_x = random.randint(width // 4, 3 * width // 4)
+            
+            kwargs.update({
+                'center': (center_y, center_x),
+                'direction': random.choice(['center_outward', 'outward_center']),
+                'min_value': random.uniform(0.0, 0.3),
+                'max_value': random.uniform(0.7, 1.0),
+                'max_radius': random.uniform(200, 500)
+            })
+        
+        return kwargs
     
     def _generate_pattern(self, pattern_type: PatternType, size: Tuple[int, int], **kwargs) -> np.ndarray:
         """Generate specific pattern type at given resolution."""
