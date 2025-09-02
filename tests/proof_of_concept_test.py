@@ -13,7 +13,7 @@ from pathlib import Path
 import sys
 
 # Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.data.heatmap_generator import (
     HeatmapGenerator, 
@@ -83,7 +83,6 @@ class ProofOfConceptTest:
         combined_scenario = HeatmapData(
             display_layer=combined_display,
             decision_grid=combined_decision,
-            region_mask=fire_points_data.region_mask,
             metadata={
                 'pattern_type': 'combined_fire_risk_scenario',
                 'fire_points': 5,
@@ -166,7 +165,7 @@ class ProofOfConceptTest:
         plt.tight_layout()
         
         # Save visualization
-        output_path = "proof_of_concept_fire_scenario.png"
+        output_path = "results/proof_of_concept_fire_scenario.png"
         plt.savefig(output_path, dpi=150, bbox_inches='tight')
         print(f"✅ Visualization saved to: {output_path}")
         
@@ -247,8 +246,8 @@ class ProofOfConceptTest:
         analysis = self.analyze_scenario(scenario)
         
         # Save scenario data
-        self.generator.save_heatmap(scenario, "proof_of_concept_scenario.npz")
-        print(f"\n💾 Scenario data saved to: proof_of_concept_scenario.npz")
+        self.generator.save_heatmap(scenario, "results/proof_of_concept_scenario.npz")
+        print(f"\n💾 Scenario data saved to: results/proof_of_concept_scenario.npz")
         
         print(f"\n🎉 Proof of Concept Complete!")
         print(f"   📊 Created realistic fire risk scenario")

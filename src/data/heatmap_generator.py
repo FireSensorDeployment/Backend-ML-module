@@ -34,7 +34,6 @@ class HeatmapData:
     """Container for generated heatmap data."""
     display_layer: np.ndarray      # High-resolution display (1000x1000)
     decision_grid: np.ndarray      # RL decision grid (50x50)
-    region_mask: np.ndarray        # Valid regions (reserved for future)
     metadata: Dict[str, Any]       # Generation parameters and info
 
 
@@ -96,8 +95,7 @@ class HeatmapGenerator:
         
         # Note: Feature extraction removed - should be handled by separate modules
         
-        # Create region mask (all valid for Week 1)
-        region_mask = np.ones(self.config.grid_size, dtype=bool)
+        # Note: region_mask removed - was unused placeholder functionality
         
         # Prepare metadata
         metadata = {
@@ -110,7 +108,6 @@ class HeatmapGenerator:
         return HeatmapData(
             display_layer=display_layer,
             decision_grid=decision_grid,
-            region_mask=region_mask,
             metadata=metadata
         )
     
@@ -253,33 +250,24 @@ class HeatmapGenerator:
             heatmap_data: Generated heatmap data
             save_path: Optional path to save visualization
         """
-        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-        fig.suptitle(f"Heatmap Visualization - {heatmap_data.metadata['pattern_type']}")
+        fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+        fig.suptitle(f"Heatmap Visualization - {heatmap_data.metadata['pattern_type']}", y=0.98)
         
         # Display layer
-        im1 = axes[0, 0].imshow(heatmap_data.display_layer, cmap='hot')
-        axes[0, 0].set_title('Display Layer (1000x1000)')
-        axes[0, 0].set_xlabel('X Coordinate')
-        axes[0, 0].set_ylabel('Y Coordinate')
-        plt.colorbar(im1, ax=axes[0, 0])
+        im1 = axes[0].imshow(heatmap_data.display_layer, cmap='hot')
+        axes[0].set_title('Display Layer (1000×1000)', pad=15)
+        axes[0].set_xlabel('X Coordinate')
+        axes[0].set_ylabel('Y Coordinate')
+        plt.colorbar(im1, ax=axes[0])
         
         # Decision grid
-        im2 = axes[0, 1].imshow(heatmap_data.decision_grid, cmap='hot')
-        axes[0, 1].set_title('Decision Grid (50x50)')
-        axes[0, 1].set_xlabel('Grid X')
-        axes[0, 1].set_ylabel('Grid Y')
-        plt.colorbar(im2, ax=axes[0, 1])
+        im2 = axes[1].imshow(heatmap_data.decision_grid, cmap='hot')
+        axes[1].set_title('Decision Grid (50×50)', pad=15)
+        axes[1].set_xlabel('Grid X')
+        axes[1].set_ylabel('Grid Y')
+        plt.colorbar(im2, ax=axes[1])
         
-        # Region mask
-        axes[1, 0].imshow(heatmap_data.region_mask, cmap='binary')
-        axes[1, 0].set_title('Region Mask')
-        
-        # Placeholder for future use
-        axes[1, 1].text(0.5, 0.5, 'Future: Additional\nVisualization Layer', 
-                        ha='center', va='center', transform=axes[1, 1].transAxes)
-        axes[1, 1].set_title('Reserved')
-        
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave space for suptitle
         
         if save_path:
             plt.savefig(save_path, dpi=150, bbox_inches='tight')
@@ -293,7 +281,6 @@ class HeatmapGenerator:
             filepath,
             display_layer=heatmap_data.display_layer,
             decision_grid=heatmap_data.decision_grid,
-            region_mask=heatmap_data.region_mask,
             metadata=heatmap_data.metadata
         )
         print(f"Heatmap data saved to: {filepath}")
@@ -303,10 +290,13 @@ class HeatmapGenerator:
         """Load heatmap data from .npy file."""
         data = np.load(filepath, allow_pickle=True)
         
+        # Handle backward compatibility for files with region_mask
+        if 'region_mask' in data.keys():
+            print(f"Warning: Loaded file contains deprecated region_mask field (ignored)")
+        
         return HeatmapData(
             display_layer=data['display_layer'],
-            decision_grid=data['decision_grid'], 
-            region_mask=data['region_mask'],
+            decision_grid=data['decision_grid'],
             metadata=data['metadata'].item()
         )
 

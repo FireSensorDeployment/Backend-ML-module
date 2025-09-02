@@ -104,7 +104,7 @@ class TestHeatmapGenerator:
         assert isinstance(heatmap_data, HeatmapData)
         assert heatmap_data.display_layer.shape == (1000, 1000)
         assert heatmap_data.decision_grid.shape == (50, 50)
-        assert 'buildings' in heatmap_data.features
+        # Note: features functionality removed - focusing on core heatmap data
         print("✅ Default Gaussian hotspot structure correct")
         
         # Test custom parameters
@@ -353,37 +353,34 @@ class TestHeatmapGenerator:
         assert gradient_downsampled[0, 0] < gradient_downsampled[0, 25] < gradient_downsampled[0, 49]
         print("✅ Gradient patterns preserved during downsampling")
     
-    def test_feature_extraction(self):
-        """Test feature extraction from generated heatmaps."""
-        print("\n🔍 Testing Feature Extraction...")
+    def test_data_structure_validation(self):
+        """Test that HeatmapData contains expected core fields."""
+        print("\n🔍 Testing Data Structure Validation...")
         
         # Generate test heatmap
         heatmap_data = self.generator.generate_heatmap(PatternType.GAUSSIAN_HOTSPOT)
         
-        # Test feature structure
-        features = heatmap_data.features
-        assert 'buildings' in features
-        assert 'obstacles' in features
-        assert 'sensor_areas' in features
-        print("✅ All expected features present")
+        # Test core data structure
+        assert hasattr(heatmap_data, 'display_layer'), "Missing display_layer"
+        assert hasattr(heatmap_data, 'decision_grid'), "Missing decision_grid" 
+        assert hasattr(heatmap_data, 'metadata'), "Missing metadata"
+        print("✅ All expected core fields present")
         
-        # Test feature dimensions
-        assert features['buildings'].shape == (1000, 1000)
-        assert features['obstacles'].shape == (1000, 1000)
-        assert features['sensor_areas'].shape == (50, 50)
-        print("✅ Feature dimensions correct")
+        # Test data dimensions
+        assert heatmap_data.display_layer.shape == (1000, 1000)
+        assert heatmap_data.decision_grid.shape == (50, 50)
+        print("✅ Data dimensions correct")
         
-        # Test feature types
-        assert features['buildings'].dtype == np.uint8
-        assert features['obstacles'].dtype == np.uint8
-        assert features['sensor_areas'].dtype == bool
-        print("✅ Feature data types correct")
+        # Test data types
+        assert heatmap_data.display_layer.dtype == np.float32
+        assert heatmap_data.decision_grid.dtype == np.float32
+        assert isinstance(heatmap_data.metadata, dict)
+        print("✅ Data types correct")
         
-        # Test that features identify something
-        assert np.sum(features['buildings']) > 0, "Buildings should be detected"
-        assert np.sum(features['obstacles']) > 0, "Obstacles should be detected"
-        assert np.sum(features['sensor_areas']) > 0, "Sensor areas should be valid"
-        print("✅ Features identify expected regions")
+        # Test that data contains meaningful values
+        assert np.max(heatmap_data.display_layer) > 0, "Display layer should have heat values"
+        assert np.max(heatmap_data.decision_grid) > 0, "Decision grid should have heat values"
+        print("✅ Data validation passed")
     
     def test_save_load_functionality(self):
         """Test saving and loading heatmap data."""
@@ -402,14 +399,10 @@ class TestHeatmapGenerator:
         # Verify loaded data matches original
         np.testing.assert_array_equal(original_data.display_layer, loaded_data.display_layer)
         np.testing.assert_array_equal(original_data.decision_grid, loaded_data.decision_grid)
-        np.testing.assert_array_equal(original_data.region_mask, loaded_data.region_mask)
+        # Note: region_mask field removed
         
         # Test features
-        for key in original_data.features:
-            np.testing.assert_array_equal(
-                original_data.features[key], 
-                loaded_data.features[key]
-            )
+        # Note: features field removed, only core data compared
         
         print("✅ Save/load functionality working correctly")
         
@@ -459,7 +452,7 @@ class TestHeatmapGenerator:
         self.test_vertical_gradient_generation()
         self.test_radial_gradient_generation()
         self.test_downsampling_accuracy()
-        self.test_feature_extraction()
+        self.test_data_structure_validation()
         self.test_save_load_functionality()
         self.test_metadata_completeness()
         
@@ -522,8 +515,8 @@ class TestHeatmapGenerator:
         ]
         
         # Create larger visualization grid
-        fig, axes = plt.subplots(8, 3, figsize=(15, 32))
-        fig.suptitle("HeatmapGenerator Test Results - All Pattern Types", fontsize=20)
+        fig, axes = plt.subplots(8, 2, figsize=(12, 32))
+        fig.suptitle("HeatmapGenerator Test Results - All Pattern Types", fontsize=20, y=0.98)
         
         for i, (name, pattern_type, params) in enumerate(patterns_to_test):
             heatmap_data = self.generator.generate_heatmap(pattern_type, **params)
@@ -540,19 +533,14 @@ class TestHeatmapGenerator:
             axes[i, 1].set_xlabel('Grid X')
             axes[i, 1].set_ylabel('Grid Y')
             
-            # Buildings feature
-            axes[i, 2].imshow(heatmap_data.features['buildings'], cmap='gray', aspect='equal')
-            axes[i, 2].set_title(f'{name} - Buildings', fontsize=12)
-            
-            # Add colorbars for better visualization
-            if i == 0:
-                plt.colorbar(im1, ax=axes[i, 0], fraction=0.046)
-                plt.colorbar(im2, ax=axes[i, 1], fraction=0.046)
+            # Add colorbars for all rows to maintain alignment
+            plt.colorbar(im1, ax=axes[i, 0], fraction=0.046, pad=0.02)
+            plt.colorbar(im2, ax=axes[i, 1], fraction=0.046, pad=0.02)
         
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0, 1, 0.97])  # Leave space for suptitle
         
         # Save visualization
-        output_path = "test_results_comprehensive.png"
+        output_path = "tests/results/test_results_comprehensive.png"
         plt.savefig(output_path, dpi=150, bbox_inches='tight')
         print(f"✅ Test visualization saved to: {output_path}")
         
@@ -581,8 +569,7 @@ def run_performance_test():
     memory_usage = (
         heatmap_data.display_layer.nbytes +
         heatmap_data.decision_grid.nbytes +
-        sum(arr.nbytes for arr in heatmap_data.features.values()) +
-        heatmap_data.region_mask.nbytes
+        0  # Note: features and region_mask removed
     ) / (1024 * 1024)  # Convert to MB
     
     print(f"✅ Memory usage: {memory_usage:.1f}MB")
