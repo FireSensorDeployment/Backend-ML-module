@@ -34,7 +34,6 @@ class HeatmapData:
     """Container for generated heatmap data."""
     display_layer: np.ndarray      # High-resolution display (1000x1000)
     decision_grid: np.ndarray      # RL decision grid (50x50)
-    features: Dict[str, np.ndarray]  # Extracted features
     region_mask: np.ndarray        # Valid regions (reserved for future)
     metadata: Dict[str, Any]       # Generation parameters and info
 
@@ -95,8 +94,7 @@ class HeatmapGenerator:
         # Downsample to create decision grid
         decision_grid = self._downsample_to_grid(display_layer)
         
-        # Extract features
-        features = self._extract_features(display_layer, decision_grid)
+        # Note: Feature extraction removed - should be handled by separate modules
         
         # Create region mask (all valid for Week 1)
         region_mask = np.ones(self.config.grid_size, dtype=bool)
@@ -112,7 +110,6 @@ class HeatmapGenerator:
         return HeatmapData(
             display_layer=display_layer,
             decision_grid=decision_grid,
-            features=features,
             region_mask=region_mask,
             metadata=metadata
         )
@@ -143,16 +140,25 @@ class HeatmapGenerator:
         ])
         intensities = kwargs.get('intensities', [0.8, 0.6])
         sigma = kwargs.get('sigma', min(height, width) * 0.1)
+        sigmas = kwargs.get('sigmas', None)  # Support multiple sigma values
         
         if len(intensities) != len(hotspot_centers):
             intensities = [intensities[0]] * len(hotspot_centers) if len(intensities) == 1 else intensities[:len(hotspot_centers)]
         
+        # Handle multiple sigma values or use single sigma for all
+        if sigmas is not None:
+            if len(sigmas) != len(hotspot_centers):
+                sigmas = [sigmas[0]] * len(hotspot_centers) if len(sigmas) == 1 else sigmas[:len(hotspot_centers)]
+        else:
+            sigmas = [sigma] * len(hotspot_centers)
+        
         y_coords, x_coords = np.meshgrid(np.arange(height), np.arange(width), indexing='ij')
         for i in range(len(hotspot_centers)):
             center_row, center_col = hotspot_centers[i]
-            intensity = intensities[i]                   
+            intensity = intensities[i]
+            current_sigma = sigmas[i]                   
             distance_sq = (x_coords - center_col)**2 + (y_coords - center_row)**2
-            gaussian = intensity * np.exp(-distance_sq / (2 * sigma**2))
+            gaussian = intensity * np.exp(-distance_sq / (2 * current_sigma**2))
             heatmap += gaussian
         
         return heatmap
@@ -236,37 +242,8 @@ class HeatmapGenerator:
         reshaped = display_layer.reshape(grid_h, scale_h, grid_w, scale_w)
         return np.mean(reshaped, axis=(1, 3))
     
-    def _extract_features(self, display_layer: np.ndarray, decision_grid: np.ndarray) -> Dict[str, np.ndarray]:
-        """Extract features from generated maps."""
-        features = {}
-        
-        # Simple building identification via brightness thresholds
-        features['buildings'] = self._identify_buildings(display_layer)
-        
-        # Obstacle marking (water, roads) - placeholder for now
-        features['obstacles'] = self._mark_obstacles(display_layer)
-        
-        # Sensor placement validation areas
-        features['sensor_areas'] = self._validate_sensor_areas(decision_grid)
-        
-        return features
-    
-    def _identify_buildings(self, display_layer: np.ndarray) -> np.ndarray:
-        """Identify buildings using color/brightness thresholds."""
-        # Placeholder implementation - assumes high values indicate buildings
-        threshold = np.percentile(display_layer, 75)
-        return (display_layer > threshold).astype(np.uint8)
-    
-    def _mark_obstacles(self, display_layer: np.ndarray) -> np.ndarray:
-        """Mark obstacles like water bodies and roads."""
-        # Placeholder - assumes low values are obstacles
-        threshold = np.percentile(display_layer, 25)
-        return (display_layer < threshold).astype(np.uint8)
-    
-    def _validate_sensor_areas(self, decision_grid: np.ndarray) -> np.ndarray:
-        """Validate areas suitable for sensor placement."""
-        # Placeholder - all areas valid for now
-        return np.ones_like(decision_grid, dtype=bool)
+    # Feature extraction methods removed - should be handled by separate modules
+    # BuildingGenerator, RoadGenerator, etc. will handle semantic features
     
     def visualize_heatmap(self, heatmap_data: HeatmapData, save_path: Optional[str] = None) -> None:
         """
@@ -293,13 +270,14 @@ class HeatmapGenerator:
         axes[0, 1].set_ylabel('Grid Y')
         plt.colorbar(im2, ax=axes[0, 1])
         
-        # Buildings feature
-        axes[1, 0].imshow(heatmap_data.features['buildings'], cmap='gray')
-        axes[1, 0].set_title('Buildings (Feature)')
-        
         # Region mask
-        axes[1, 1].imshow(heatmap_data.region_mask, cmap='binary')
-        axes[1, 1].set_title('Region Mask')
+        axes[1, 0].imshow(heatmap_data.region_mask, cmap='binary')
+        axes[1, 0].set_title('Region Mask')
+        
+        # Placeholder for future use
+        axes[1, 1].text(0.5, 0.5, 'Future: Additional\nVisualization Layer', 
+                        ha='center', va='center', transform=axes[1, 1].transAxes)
+        axes[1, 1].set_title('Reserved')
         
         plt.tight_layout()
         
@@ -315,7 +293,6 @@ class HeatmapGenerator:
             filepath,
             display_layer=heatmap_data.display_layer,
             decision_grid=heatmap_data.decision_grid,
-            features=heatmap_data.features,
             region_mask=heatmap_data.region_mask,
             metadata=heatmap_data.metadata
         )
@@ -329,7 +306,6 @@ class HeatmapGenerator:
         return HeatmapData(
             display_layer=data['display_layer'],
             decision_grid=data['decision_grid'], 
-            features=data['features'].item(),
             region_mask=data['region_mask'],
             metadata=data['metadata'].item()
         )
