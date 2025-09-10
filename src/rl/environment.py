@@ -28,12 +28,17 @@ class EnvConfig:
     clip_obs_min: float = 0.0
     clip_obs_max: float = 1.0
 
+    place_action_id: int = 5                 # new "Place" Action
+    min_sensor_distance: int = 2             # “距离过近”的阈值（格子距离） - 之后会改成半径距离 (sensor size)
+    invalid_action_penalty: float = -0.5     # 软惩罚
+    invalid_action_threshold: int = 10       # 无效行为累计上限（>= 则 truncate）
+
 class FireSensorEnv(gym.Env):
     """
     A minimal, deterministic-safe Gymnasium env.
 
     Observation: Box(low=0, high=1, shape=(H, W), dtype=np.float32)
-    Action: Discrete(5) -> 0:noop, 1:up, 2:down, 3:left, 4:right
+    Action: Discrete(6) -> 0:noop, 1:up, 2:down, 3:left, 4:right, 5: place
     Episode ends: fixed horizon (max_steps)
     """
     metadata = {"render_modes": []}
@@ -46,12 +51,14 @@ class FireSensorEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, shape=(h, w), dtype=np.float32
         )
-        self.action_space = spaces.Discrete(5)
+        self.action_space = spaces.Discrete(6)
 
         # internal state
         self._grid: Optional[np.ndarray] = None
         self._pos: Tuple[int, int] = (h // 2, w // 2)
         self._steps: int = 0
+        self._placed: set[tuple[int, int]] = set()
+        self._invalid_actions: int = 0
 
         # dataset bookkeeping
         self._dataset_paths: Optional[List[str]] = list(self.config.dataset_paths) if self.config.dataset_paths else None
@@ -133,6 +140,8 @@ class FireSensorEnv(gym.Env):
             self._pos = (r, c)
 
         self._steps = 0
+        self._placed.clear()
+        self._invalid_actions = 0
 
         # dataset-backed observation or placeholder
         if self._dataset_paths:
@@ -147,45 +156,76 @@ class FireSensorEnv(gym.Env):
 
         obs = self._grid.copy()
         return obs, info
-
-    def step(self, action: int) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
-        """
-        Step the environment. Must return (obs, reward, terminated, truncated, info).
-        """
+    
+    def step(self, action: int):
         assert self._grid is not None, "Call reset() before step()."
         h, w = self._grid.shape
+        obs_before = self._grid  # 用于“状态未改变”的断言
 
-        # Action effects
+        # place 动作优先处理（避免 place 后还移动）
+        if action == self.config.place_action_id:
+            r, c = self._pos
+            # 规则：重复放置 / 距离过近 -> 无效，罚分，状态不变
+            if (r, c) in self._placed:
+                return self._apply_invalid_penalty(obs_before, reason="duplicate")
+            if self._too_close(r, c):
+                return self._apply_invalid_penalty(obs_before, reason="too_close")
+            # 合法放置：记录即可（MVP 不改变 obs）
+            self._placed.add((r, c))
+            self._steps += 1
+            reward = float(self.config.reward_per_step)
+            info = {
+                "position": self._pos,
+                "step": self._steps,
+                "scenario_path": getattr(self, "_last_scenario_path", None),
+                "invalid_actions": self._invalid_actions,
+            }
+            truncated = self._steps >= self.config.max_steps
+            return obs_before.copy(), reward, False, truncated, info
+
+        # 移动：保持 clamp（不计无效，不给惩罚）
         dr = dc = 0
-        if action == 1:   # up
-            dr = -1
-        elif action == 2: # down
-            dr = 1
-        elif action == 3: # left
-            dc = -1
-        elif action == 4: # right
-            dc = 1
-        # 0 is noop
+        if action == 1:   dr = -1
+        elif action == 2: dr = 1
+        elif action == 3: dc = -1
+        elif action == 4: dc = 1
+        # 0: noop
 
         r, c = self._pos
         new_r, new_c = r + dr, c + dc
-
-        # Clamp to legal bounds instead of truncating the episode
         new_r = max(0, min(new_r, h - 1))
         new_c = max(0, min(new_c, w - 1))
         self._pos = (new_r, new_c)
 
         self._steps += 1
-        terminated = False  # no terminal condition in MVP
-        truncated = self._steps >= self.config.max_steps
-
         reward = float(self.config.reward_per_step)
-
-        obs = self._grid.copy()
-        info: Dict[str, Any] = {
+        truncated = self._steps >= self.config.max_steps
+        info = {
             "position": self._pos,
             "step": self._steps,
-            "scenario_path": self._last_scenario_path,
+            "scenario_path": getattr(self, "_last_scenario_path", None),
+            "invalid_actions": self._invalid_actions,
         }
+        return self._grid.copy(), reward, False, truncated, info
 
-        return obs, reward, terminated, truncated, info
+    def _too_close(self, r: int, c: int) -> bool:
+        if not self._placed:
+            return False
+        d = self.config.min_sensor_distance
+        for pr, pc in self._placed:
+            if max(abs(pr - r), abs(pc - c)) < d:
+                return True
+        return False
+
+    def _apply_invalid_penalty(self, obs: np.ndarray, reason: str) -> tuple[np.ndarray, float, bool, bool, dict]:
+        self._invalid_actions += 1
+        truncated = self._invalid_actions >= self.config.invalid_action_threshold
+        info = {
+            "position": self._pos,
+            "step": self._steps,
+            "scenario_path": getattr(self, "_last_scenario_path", None),
+            "invalid_actions": self._invalid_actions,
+            "invalid_reason": reason,
+        }
+        # 状态不变，obs 不变（返回拷贝以符合 Gym 惯例）
+        return obs.copy(), float(self.config.invalid_action_penalty), False, truncated, info
