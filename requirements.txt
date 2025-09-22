@@ -12,3 +12,6 @@ matplotlib
 # Geospatial Analysis
 geopandas
 folium
+
+# TensorBoard for visualization
+tensorboard
