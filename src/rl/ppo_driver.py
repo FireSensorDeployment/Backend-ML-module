@@ -6,6 +6,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from stable_baselines3.common.env_checker import check_env
 
 from environment import FireSensorEnv
+from environment import EnvConfig 
 
 # (H, W) -> (1, H, W)
 class AddChannelDim(ObservationWrapper):
@@ -22,7 +23,9 @@ class AddChannelDim(ObservationWrapper):
 
 def make_env_cnn():
     def _thunk():
-        env = FireSensorEnv()
+        env = FireSensorEnv(config=EnvConfig(
+                dataset_paths=["mixed_pattern_training_set_50.npz"]
+            ))
         env = AddChannelDim(env)
         # 只在开发期检查一次即可；要静音告警可用 warn=False
         check_env(env, warn=True)
