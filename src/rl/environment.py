@@ -8,7 +8,7 @@ Reward is 0 by default; episodes terminate after a fixed horizon.
 
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, Sequence, List
-
+import os
 import numpy as np
 
 import gymnasium as gym
@@ -49,7 +49,7 @@ class FireSensorEnv(gym.Env):
         h, w = self.config.grid_size
 
         self.observation_space = spaces.Box(
-            low=0.0, high=1.0, shape=(h, w), dtype=np.float32
+            low=0.0, high=1.0, shape=(2, h, w), dtype=np.float32
         )
         self.action_space = spaces.Discrete(6)
 
@@ -90,7 +90,29 @@ class FireSensorEnv(gym.Env):
 
     def _load_npz_scenario(self, path: str) -> Tuple[np.ndarray, Dict[str, Any]]:
         data = np.load(path, allow_pickle=True)
-        # required keys
+        # 新版格式：scenarios 里有多个场景，这个和mixed_pattern_training_set_50.npz兼容
+        if "scenarios" in data.files:
+            scenarios = data["scenarios"]  # object 数组，每个元素是 dict
+            total = len(scenarios)
+            idx = int(self.np_random.integers(0, total))  # 随机取一个
+            s = scenarios[idx]
+
+            # 有两种情况：新版是 decision_grid，多数是 fire_risk + buildings
+            if "decision_grid" in s:
+                grid = s["decision_grid"]
+            elif "fire_risk" in s and "buildings" in s:
+                # 🔹 自动融合为多通道 (2,50,50)
+                grid = np.stack([s["fire_risk"], s["buildings"]], axis=0).astype(np.float32)
+            else:
+                raise KeyError(f"No usable grid found in scenario {idx} from {path}")
+
+            # 元数据
+            metadata = s.get("metadata", {})
+            print(f"[NPZ] Loaded scenario {idx+1}/{total} from '{os.path.basename(path)}'")
+
+            return grid, {"metadata": metadata, "scenario_path": path}
+
+        # required keys 这以下是之前的格式，和目前的mixed_pattern_training_set_50.npz不兼容
         for k in ("decision_grid", "display_layer", "metadata"):
             if k not in data:
                 raise KeyError(f"NPZ missing key '{k}' in {path}")
@@ -159,7 +181,7 @@ class FireSensorEnv(gym.Env):
     
     def step(self, action: int):
         assert self._grid is not None, "Call reset() before step()."
-        h, w = self._grid.shape
+        _, h, w = self._grid.shape # (2,H,W)
         obs_before = self._grid  # 用于“状态未改变”的断言
 
         # place 动作优先处理（避免 place 后还移动）

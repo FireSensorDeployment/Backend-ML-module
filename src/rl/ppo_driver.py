@@ -8,26 +8,28 @@ from stable_baselines3.common.env_checker import check_env
 from environment import FireSensorEnv
 from environment import EnvConfig 
 
-# (H, W) -> (1, H, W)
-class AddChannelDim(ObservationWrapper):
-    def __init__(self, env):
-        super().__init__(env)
-        h, w = env.observation_space.shape
-        self.observation_space = spaces.Box(
-            low=0.0, high=1.0, shape=(1, h, w), dtype=np.float32  # 变成 float32 格式，且增加通道维度
-        )
-    def observation(self, obs):
-        if obs.dtype != np.float32:
-            obs = obs.astype(np.float32, copy=False) # 强制转换为 float32
-        return obs[np.newaxis, ...]  # (1,H,W) <- (H,W)
+
+
+#class AddChannelDim(ObservationWrapper):
+#    def __init__(self, env):
+#        super().__init__(env)
+#        h, w = env.observation_space.shape
+#        self.observation_space = spaces.Box(
+#            low=0.0, high=1.0, shape=(2, h, w), dtype=np.float32
+#        )
+#    def observation(self, obs):
+#        if obs.dtype != np.float32:
+#            obs = obs.astype(np.float32, copy=False) # 强制转换为 float32
+#        return obs[np.newaxis, ...]  # (1,H,W) <- (H,W)
 
 def make_env_cnn():
     def _thunk():
         env = FireSensorEnv(config=EnvConfig(
-                dataset_paths=["mixed_pattern_training_set_50.npz"]
-            ))
-        env = AddChannelDim(env)
-        # 只在开发期检查一次即可；要静音告警可用 warn=False
+            dataset_paths=["mixed_pattern_training_set_50.npz"]
+        ))
+        # 调试信息（仅第一次运行时可以保留）
+        print("[ENV CHECK] observation_space:", env.observation_space)
+        print("[ENV CHECK] action_space:", env.action_space)
         check_env(env, warn=True)
         return env
     return _thunk
