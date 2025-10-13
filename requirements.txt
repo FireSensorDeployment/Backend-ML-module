@@ -26,3 +26,20 @@ sympy==1.14.0
 torch==2.8.0
 typing_extensions==4.15.0
 tzdata==2025.2
+# Reinforcement Learning
+stable-baselines3
+gymnasium
+
+# Core ML/Data Science
+numpy
+
+# Computer Vision & Visualization
+opencv-python
+matplotlib
+
+# Geospatial Analysis
+geopandas
+folium
+
+# TensorBoard for visualization
+tensorboard
