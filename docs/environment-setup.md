@@ -34,7 +34,3 @@ numpy
 # Computer Vision & Visualization
 opencv-python
 matplotlib
-
-# Geospatial Analysis
-geopandas
-folium

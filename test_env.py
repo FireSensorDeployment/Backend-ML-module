@@ -8,9 +8,7 @@ def test_imports():
         'gymnasium': 'gymnasium',
         'numpy': 'numpy',
         'opencv-python': 'cv2',  # 特殊映射
-        'matplotlib': 'matplotlib',
-        'folium': 'folium',
-        'geopandas': 'geopandas'
+        'matplotlib': 'matplotlib'
     }
 
     for display_name, import_name in packages.items():
