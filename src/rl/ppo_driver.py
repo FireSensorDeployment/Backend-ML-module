@@ -48,6 +48,6 @@ viz_cb = TBVisualizationCallback(
     tag="rollout_viz"
 )
 
-# === 开始训练 ===
+# === Start training ===
 model.learn(total_timesteps=200_000, callback=viz_cb, tb_log_name="PPO_1")
 model.save("ppo_firesensor_cnn")
