@@ -99,6 +99,9 @@ class FireSensorEnv(gym.Env):
             # Two cases: new format uses "decision_grid", most use "fire_risk" + "buildings"
             if "decision_grid" in s:
                 grid = s["decision_grid"]
+                # shape validation
+                if grid.shape != self.config.expected_grid_size:
+                    raise ValueError(f"decision_grid has shape {grid.shape}, expected {self.config.expected_grid_size} in scenario {idx} from {path}")
             elif "fire_risk" in s and "buildings" in s:
                 # 🔹 Automatically merge into multi-channel (2,50,50)
                 grid = np.stack([s["fire_risk"], s["buildings"]], axis=0).astype(np.float32)
