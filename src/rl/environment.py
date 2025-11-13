@@ -182,6 +182,7 @@ class FireSensorEnv(gym.Env):
     
     def step(self, action: int):
         assert self._grid is not None, "Call reset() before step()."
+        # Unpack (channels, height, width); h and w are spatial dimensions used for cursor bounds checking.
         _, h, w = self._grid.shape # (2,H,W)
         obs_before = self._grid  # 用于“状态未改变”的断言
 
