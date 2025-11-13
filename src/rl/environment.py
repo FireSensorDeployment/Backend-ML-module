@@ -90,30 +90,30 @@ class FireSensorEnv(gym.Env):
 
     def _load_npz_scenario(self, path: str) -> Tuple[np.ndarray, Dict[str, Any]]:
         data = np.load(path, allow_pickle=True)
-        # 新版格式：scenarios 里有多个场景，这个和mixed_pattern_training_set_50.npz兼容
+        # New format: "scenarios" contains multiple scenarios, compatible with mixed_pattern_training_set_50.npz
         if "scenarios" in data.files:
-            scenarios = data["scenarios"]  # object 数组，每个元素是 dict
+            scenarios = data["scenarios"]  # object array, each element is a dict
             total = len(scenarios)
-            idx = int(self.np_random.integers(0, total))  # 随机取一个
+            idx = int(self.np_random.integers(0, total))  # randomly select one
             s = scenarios[idx]
 
-            # 有两种情况：新版是 decision_grid，多数是 fire_risk + buildings
+            # Two cases: new format uses "decision_grid", most use "fire_risk" + "buildings"
             if "decision_grid" in s:
                 grid = s["decision_grid"]
             elif "fire_risk" in s and "buildings" in s:
-                # 🔹 自动融合为多通道 (2,50,50)
+                # 🔹 Automatically merge into multi-channel (2,50,50)
                 grid = np.stack([s["fire_risk"], s["buildings"]], axis=0).astype(np.float32)
             else:
                 raise KeyError(f"No usable grid found in scenario {idx} from {path}")
 
-            # 元数据
+            # Metadata
             metadata = s.get("metadata", {})
-            # 打印太长一大串了，先注释掉了哈
+            # The print output is too long, so it's commented out for now
             # print(f"[NPZ] Loaded scenario {idx+1}/{total} from '{os.path.basename(path)}'")
 
             return grid, {"metadata": metadata, "scenario_path": path}
 
-        # required keys 这以下是之前的格式，和目前的mixed_pattern_training_set_50.npz不兼容
+        # The following is the previous format, which is not compatible with the current mixed_pattern_training_set_50.npz
         for k in ("decision_grid", "display_layer", "metadata"):
             if k not in data:
                 raise KeyError(f"NPZ missing key '{k}' in {path}")
