@@ -108,7 +108,8 @@ class FireSensorEnv(gym.Env):
 
             # 元数据
             metadata = s.get("metadata", {})
-            print(f"[NPZ] Loaded scenario {idx+1}/{total} from '{os.path.basename(path)}'")
+            # 打印太长一大串了，先注释掉了哈
+            # print(f"[NPZ] Loaded scenario {idx+1}/{total} from '{os.path.basename(path)}'")
 
             return grid, {"metadata": metadata, "scenario_path": path}
 
