@@ -20,7 +20,7 @@ def make_eval_env():
         allow_sample_with_replacement=False
     ))
 
-# === 创建训练环境 ===
+# === Create training environment ===
 venv = DummyVecEnv([make_env_cnn()])
 venv = VecMonitor(venv)
 
