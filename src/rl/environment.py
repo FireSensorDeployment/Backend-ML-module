@@ -8,7 +8,6 @@ Reward is 0 by default; episodes terminate after a fixed horizon.
 
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, Sequence, List
-
 import numpy as np
 
 import gymnasium as gym
@@ -49,7 +48,7 @@ class FireSensorEnv(gym.Env):
         h, w = self.config.grid_size
 
         self.observation_space = spaces.Box(
-            low=0.0, high=1.0, shape=(h, w), dtype=np.float32
+            low=0.0, high=1.0, shape=(2, h, w), dtype=np.float32
         )
         self.action_space = spaces.Discrete(6)
 
@@ -90,7 +89,33 @@ class FireSensorEnv(gym.Env):
 
     def _load_npz_scenario(self, path: str) -> Tuple[np.ndarray, Dict[str, Any]]:
         data = np.load(path, allow_pickle=True)
-        # required keys
+        # New format: "scenarios" contains multiple scenarios, compatible with mixed_pattern_training_set_50.npz
+        if "scenarios" in data.files:
+            scenarios = data["scenarios"]  # object array, each element is a dict
+            total = len(scenarios)
+            idx = int(self.np_random.integers(0, total))  # randomly select one
+            s = scenarios[idx]
+
+            # Two cases: new format uses "decision_grid", most use "fire_risk" + "buildings"
+            if "decision_grid" in s:
+                grid = s["decision_grid"]
+                # shape validation
+                if grid.shape != self.config.expected_grid_size:
+                    raise ValueError(f"decision_grid has shape {grid.shape}, expected {self.config.expected_grid_size} in scenario {idx} from {path}")
+            elif "fire_risk" in s and "buildings" in s:
+                # 🔹 Automatically merge into multi-channel (2,50,50)
+                grid = np.stack([s["fire_risk"], s["buildings"]], axis=0).astype(np.float32)
+            else:
+                raise KeyError(f"No usable grid found in scenario {idx} from {path}")
+
+            # Metadata
+            metadata = s.get("metadata", {})
+            # The print output is too long, so it's commented out for now
+            # print(f"[NPZ] Loaded scenario {idx+1}/{total} from '{os.path.basename(path)}'")
+
+            return grid, {"metadata": metadata, "scenario_path": path}
+
+        # The following is the previous format, which is not compatible with the current mixed_pattern_training_set_50.npz
         for k in ("decision_grid", "display_layer", "metadata"):
             if k not in data:
                 raise KeyError(f"NPZ missing key '{k}' in {path}")
@@ -159,7 +184,8 @@ class FireSensorEnv(gym.Env):
     
     def step(self, action: int):
         assert self._grid is not None, "Call reset() before step()."
-        h, w = self._grid.shape
+        # Unpack (channels, height, width); h and w are spatial dimensions used for cursor bounds checking.
+        _, h, w = self._grid.shape # (2,H,W)
         obs_before = self._grid  # 用于“状态未改变”的断言
 
         # place 动作优先处理（避免 place 后还移动）
