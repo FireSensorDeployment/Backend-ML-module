@@ -8,7 +8,6 @@ Reward is 0 by default; episodes terminate after a fixed horizon.
 
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, Sequence, List
-import os
 import numpy as np
 
 import gymnasium as gym
