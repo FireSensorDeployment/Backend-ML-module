@@ -1,7 +1,7 @@
 import numpy as np
 import random
 
-# 一定要加 allow_pickle=True，因为 scenarios 里存的是字典对象
+# Must add allow_pickle=True because scenarios contains dictionary objects
 d = np.load("mixed_pattern_training_set_50.npz", allow_pickle=True)
 print("Top-level keys:", d.files)
 
